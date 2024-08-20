@@ -69,9 +69,13 @@ int main(int argc, const char* argv[]) {
 
   cudaMemcpy(d_A, A, size_A, cudaMemcpyHostToDevice);
   cudaMemcpy(d_B, B, size_B, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_C, C, size_C, cudaMemcpyHostToDevice);
 
-  sgemm<<<64, 32>>>(d_A, d_B, d_C, M, N, K);
+  // Define the block size and grid size
+  dim3 blockDim(16, 16);
+  dim3 gridDim((N + blockDim.x - 1) / blockDim.x, (M + blockDim.y - 1) / blockDim.y);
 
+  sgemm<<<gridDim, blockDim>>>(d_A, d_B, d_C, M, N, K);
 
   cudaMemcpy(C, d_C, size_C, cudaMemcpyDeviceToHost);
   
