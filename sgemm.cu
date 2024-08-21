@@ -34,15 +34,11 @@ int main(int argc, const char* argv[]) {
 
   // generate data
   for (int i = 0; i < M * K; i++) {
-    A[i] = i + 1;
+    A[i] = i / 13;
   }
   for (int i = 0; i < K * N; i++) {
-    B[i] = i + 1;
+    B[i] = i % 13;
   }
-  // printf("A: ");
-  // printM(A, M, K);
-  // printf("B: ");
-  // printM(B, K, N);
 
   cudaMemcpy(d_A, A, size_A, cudaMemcpyHostToDevice);
   cudaMemcpy(d_B, B, size_B, cudaMemcpyHostToDevice);
@@ -70,8 +66,6 @@ int main(int argc, const char* argv[]) {
   cudaEventElapsedTime(&total_time_ms, s, e);
   cudaMemcpy(C, d_C, size_C, cudaMemcpyDeviceToHost);
 
-  // printf("C: ");
-  // printM(C, M, N);
   printf("My kernel average time: %f ms.\n", total_time_ms / nIters);
 
   // cublas
@@ -79,7 +73,9 @@ int main(int argc, const char* argv[]) {
   cublasCreate(&handle);
   float alpha = 1.0;
   float beta = 0.0;
+
   cudaEventRecord(s);
+
   for (int i = 0; i < nIters; i++) {
     cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, M, N, K, &alpha, d_A, K, d_B, N, &beta, d_C1, N);
   }
@@ -89,11 +85,12 @@ int main(int argc, const char* argv[]) {
   cudaEventElapsedTime(&total_time_ms, s, e);
   cudaMemcpy(C1, d_C1, size_C, cudaMemcpyDeviceToHost);
 
-  // printf("C1: ");
-  // printM(C1, M, N);
   printf("CuBlas kernel average time: %f ms.\n", total_time_ms / nIters);
 
-  cublasDestroy(handle); 
+  cublasDestroy(handle);
+
+  double eps = 1.e-6;
+  isEqual(C, C1, M, N, eps);
 
   cudaFree(d_A);
   cudaFree(d_B);
