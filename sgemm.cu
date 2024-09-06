@@ -49,13 +49,13 @@ int main(int argc, const char* argv[]) {
   cudaEventCreate(&s);
   cudaEventCreate(&e);
   float total_time_ms = 0.0;
-  int nIters = 10;
+  int nIters = 100;
 
   cudaEventRecord(s);
 
   for (int i = 0; i < nIters; i++) {
     // Define the block size and grid size
-    dim3 blockDim(16, 16);
+    dim3 blockDim(32, 32);
     dim3 gridDim((N + blockDim.x - 1) / blockDim.x, (M + blockDim.y - 1) / blockDim.y);
 
     MY_GEMM<<<gridDim, blockDim>>>(d_A, d_B, d_C, M, N, K);
@@ -90,7 +90,7 @@ int main(int argc, const char* argv[]) {
   cublasDestroy(handle);
 
   double eps = 1.e-6;
-  isEqual(C, C1, M, N, eps);
+  isEqualT(C, C1, M, N, eps);
 
   cudaFree(d_A);
   cudaFree(d_B);
