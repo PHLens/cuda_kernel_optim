@@ -1,5 +1,6 @@
 #include "utils.cuh"
 
+
 void printM(float* C, int M, int N) {
   printf("[ ");
   for (int i = 0; i < M; i++) {

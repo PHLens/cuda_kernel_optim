@@ -6,7 +6,7 @@
 #include "kernels.cuh"
 #include "utils.cuh"
 
-#define MY_GEMM sgemm0
+#define MY_GEMM sgemm1
 
 int main(int argc, const char* argv[]) {
   if (argc != 4) {
@@ -26,11 +26,15 @@ int main(int argc, const char* argv[]) {
   float* C = (float*)malloc(size_C);
   float* C1 = (float*)malloc(size_C);
 
+  const int BLOCK_SIZE_M = 32;
+  const int BLOCK_SIZE_N = 32;
+  const int BLOCK_SIZE_K = 32;
+
   float *d_A, *d_B, *d_C, *d_C1;
-  cudaMalloc(&d_A, size_A);
-  cudaMalloc(&d_B, size_B);
-  cudaMalloc(&d_C, size_C);
-  cudaMalloc(&d_C1, size_C);
+  checkCudaErrors(cudaMalloc(&d_A, size_A));
+  checkCudaErrors(cudaMalloc(&d_B, size_B));
+  checkCudaErrors(cudaMalloc(&d_C, size_C));
+  checkCudaErrors(cudaMalloc(&d_C1, size_C));
 
   // generate data
   for (int i = 0; i < M * K; i++) {
@@ -40,31 +44,31 @@ int main(int argc, const char* argv[]) {
     B[i] = i % 13;
   }
 
-  cudaMemcpy(d_A, A, size_A, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_B, B, size_B, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_C, C, size_C, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_C1, C1, size_C, cudaMemcpyHostToDevice);
+  checkCudaErrors(cudaMemcpy(d_A, A, size_A, cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(d_B, B, size_B, cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(d_C, C, size_C, cudaMemcpyHostToDevice));
+  checkCudaErrors(cudaMemcpy(d_C1, C1, size_C, cudaMemcpyHostToDevice));
 
   cudaEvent_t s, e;
-  cudaEventCreate(&s);
-  cudaEventCreate(&e);
+  checkCudaErrors(cudaEventCreate(&s));
+  checkCudaErrors(cudaEventCreate(&e));
   float total_time_ms = 0.0;
   int nIters = 100;
 
-  cudaEventRecord(s);
+  checkCudaErrors(cudaEventRecord(s));
 
   for (int i = 0; i < nIters; i++) {
     // Define the block size and grid size
-    dim3 blockDim(32, 32);
-    dim3 gridDim((N + blockDim.x - 1) / blockDim.x, (M + blockDim.y - 1) / blockDim.y);
+    dim3 blockDim(BLOCK_SIZE_N, BLOCK_SIZE_M);
+    dim3 gridDim((N + BLOCK_SIZE_N - 1) / BLOCK_SIZE_N, (M + BLOCK_SIZE_M - 1) / BLOCK_SIZE_M);
 
-    MY_GEMM<<<gridDim, blockDim>>>(d_A, d_B, d_C, M, N, K);
+    MY_GEMM<BLOCK_SIZE_M, BLOCK_SIZE_N, BLOCK_SIZE_K><<<gridDim, blockDim>>>(d_A, d_B, d_C, M, N, K);
   }
 
-  cudaEventRecord(e);
-  cudaEventSynchronize(e);
-  cudaEventElapsedTime(&total_time_ms, s, e);
-  cudaMemcpy(C, d_C, size_C, cudaMemcpyDeviceToHost);
+  checkCudaErrors(cudaEventRecord(e));
+  checkCudaErrors(cudaEventSynchronize(e));
+  checkCudaErrors(cudaEventElapsedTime(&total_time_ms, s, e));
+  checkCudaErrors(cudaMemcpy(C, d_C, size_C, cudaMemcpyDeviceToHost));
 
   printf("My kernel average time: %f ms.\n", total_time_ms / nIters);
 
@@ -74,16 +78,16 @@ int main(int argc, const char* argv[]) {
   float alpha = 1.0;
   float beta = 0.0;
 
-  cudaEventRecord(s);
+  checkCudaErrors(cudaEventRecord(s));
 
   for (int i = 0; i < nIters; i++) {
     cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_T, M, N, K, &alpha, d_A, K, d_B, N, &beta, d_C1, N);
   }
 
-  cudaEventRecord(e);
-  cudaEventSynchronize(e);
-  cudaEventElapsedTime(&total_time_ms, s, e);
-  cudaMemcpy(C1, d_C1, size_C, cudaMemcpyDeviceToHost);
+  checkCudaErrors(cudaEventRecord(e));
+  checkCudaErrors(cudaEventSynchronize(e));
+  checkCudaErrors(cudaEventElapsedTime(&total_time_ms, s, e));
+  checkCudaErrors(cudaMemcpy(C1, d_C1, size_C, cudaMemcpyDeviceToHost));
 
   printf("CuBlas kernel average time: %f ms.\n", total_time_ms / nIters);
 
@@ -92,12 +96,12 @@ int main(int argc, const char* argv[]) {
   double eps = 1.e-6;
   isEqualT(C, C1, M, N, eps);
 
-  cudaFree(d_A);
-  cudaFree(d_B);
-  cudaFree(d_C);
-  cudaFree(d_C1);
-  cudaEventDestroy(s);
-  cudaEventDestroy(e);
+  checkCudaErrors(cudaFree(d_A));
+  checkCudaErrors(cudaFree(d_B));
+  checkCudaErrors(cudaFree(d_C));
+  checkCudaErrors(cudaFree(d_C1));
+  checkCudaErrors(cudaEventDestroy(s));
+  checkCudaErrors(cudaEventDestroy(e));
 
   free(A);
   free(B);

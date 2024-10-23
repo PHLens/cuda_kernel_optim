@@ -11,3 +11,29 @@ __global__ void sgemm0(float* A, float* B, float* C, const int M, const int N, c
     C[ty * N + tx] = c;
   }
 }
+
+// global memory tiled to shared memory
+template < const int BLOCK_SIZE_M, const int BLOCK_SIZE_N, const int BLOCK_SIZE_K >
+__global__ void sgemm1(float* A, float* B, float* C, const int M, const int N, const int K) {
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+  int row = blockIdx.y * BLOCK_SIZE_M + threadIdx.y;
+  int col = blockIdx.x * BLOCK_SIZE_N + threadIdx.x;
+  __shared__ float tileA[BLOCK_SIZE_M][BLOCK_SIZE_N];
+  __shared__ float tileB[BLOCK_SIZE_M][BLOCK_SIZE_N];
+
+  float c = 0.0;
+  for (int m = 0; m < K / BLOCK_SIZE_K; m++) {
+    // parallel loading M/N into shared memory.
+    tileA[ty][tx] = A[row * K + m * BLOCK_SIZE_K + tx];
+    tileB[ty][tx] = B[(m * BLOCK_SIZE_K + ty) * K + col];
+  
+    __syncthreads();
+    for (int i = 0; i < BLOCK_SIZE_K; i++) {
+      c += tileA[ty][i] * tileB[i][tx];
+    }
+    __syncthreads();
+  }
+
+  C[row * N + col] = c;
+}
