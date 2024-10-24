@@ -6,7 +6,7 @@
 #include "kernels.cuh"
 #include "utils.cuh"
 
-#define MY_GEMM sgemm1
+#define MY_GEMM sgemm1_1
 
 int main(int argc, const char* argv[]) {
   if (argc != 4) {
